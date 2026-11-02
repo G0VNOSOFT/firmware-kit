@@ -14,17 +14,21 @@ CFLAGS  := -m32 -ffreestanding -nostdlib -fno-builtin -fno-pic \
            -fno-asynchronous-unwind-tables -fno-unwind-tables \
            -fno-ident -fno-common -I$(ROOT)/include
 ASFLAGS := -f win32 --prefix _
+LDFLAGS := -m i386pe --image-base 0x0 -T link.ld
 
 LIBDIR  := $(ROOT)/lib/idt_gdt
+COMNDIR := $(ROOT)/lib/common
 
-CFILES  := kernel.c $(LIBDIR)/gdt.c $(LIBDIR)/idt.c $(LIBDIR)/irq.c \
-           $(LIBDIR)/pit.c $(LIBDIR)/isr.c
+CFILES  := kernel.c \
+           $(LIBDIR)/gdt.c $(LIBDIR)/idt.c $(LIBDIR)/irq.c \
+           $(LIBDIR)/pit.c $(LIBDIR)/isr.c \
+           $(COMNDIR)/vga.c
 AFILES  := $(LIBDIR)/gdt_flush.s $(LIBDIR)/idt_load.s $(LIBDIR)/isr_stubs.s
 
-OBJS    := kernel.o gdt.o idt.o irq.o pit.o isr.o \
+OBJS    := kernel.o gdt.o idt.o irq.o pit.o isr.o vga.o \
            gdt_flush.o idt_load.o isr_stubs.o
 
-vpath %.c $(LIBDIR)
+vpath %.c $(LIBDIR) $(COMNDIR)
 vpath %.s $(LIBDIR)
 
 all: os.img
@@ -37,8 +41,6 @@ all: os.img
 
 boot.bin: boot.s
 	$(AS) -f bin $< -o $@
-
-LDFLAGS := -m i386pe --image-base 0x0 -T link.ld
 
 kernel.pe: $(OBJS) link.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
