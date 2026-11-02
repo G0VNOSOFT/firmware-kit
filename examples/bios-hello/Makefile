@@ -18,17 +18,19 @@ LDFLAGS := -m i386pe --image-base 0x0 -T link.ld
 
 LIBDIR  := $(ROOT)/lib/idt_gdt
 COMNDIR := $(ROOT)/lib/common
+PCIDIR  := $(ROOT)/lib/pci
 
 CFILES  := kernel.c \
            $(LIBDIR)/gdt.c $(LIBDIR)/idt.c $(LIBDIR)/irq.c \
            $(LIBDIR)/pit.c $(LIBDIR)/isr.c \
-           $(COMNDIR)/vga.c
+           $(COMNDIR)/vga.c \
+           $(PCIDIR)/pci.c
 AFILES  := $(LIBDIR)/gdt_flush.s $(LIBDIR)/idt_load.s $(LIBDIR)/isr_stubs.s
 
-OBJS    := kernel.o gdt.o idt.o irq.o pit.o isr.o vga.o \
+OBJS    := kernel.o gdt.o idt.o irq.o pit.o isr.o vga.o pci.o \
            gdt_flush.o idt_load.o isr_stubs.o
 
-vpath %.c $(LIBDIR) $(COMNDIR)
+vpath %.c $(LIBDIR) $(COMNDIR) $(PCIDIR)
 vpath %.s $(LIBDIR)
 
 all: os.img
@@ -53,6 +55,8 @@ kernel.bin: kernel.pe
 
 os.img: boot.bin kernel.bin
 	cat boot.bin kernel.bin > $@
+	truncate -s 131072 $@
+	@echo "os.img: $$(wc -c < $@) bytes"
 
 run: os.img
 	$(QEMU) -drive format=raw,file=os.img

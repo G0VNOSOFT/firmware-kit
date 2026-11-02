@@ -1,8 +1,9 @@
 bits 16
 org 0x7C00
 
-KERNEL_SEG  equ 0x1000       ; load at 0x10000
-KERNEL_SECT equ 16           ; 16 sectors = 8 KiB
+KERNEL_SEG  equ 0x1000          ; load at 0x10000
+KERNEL_LBA  equ 1               ; start right after MBR
+KERNEL_SECT equ 64              ; 32 KiB budget
 
 start:
     cli
@@ -14,24 +15,22 @@ start:
     sti
     mov [boot_drive], dl
 
-    mov ax, KERNEL_SEG
-    mov es, ax
-    xor bx, bx
-    mov ah, 0x02
-    mov al, KERNEL_SECT
-    mov ch, 0
-    mov cl, 2
-    mov dh, 0
+    ; --- read kernel via LBA (int 13h AH=42h) ---
+    mov word [dap_count], KERNEL_SECT
+    mov dword [dap_lba],   KERNEL_LBA
+    mov si, dap
+    mov ah, 0x42
     mov dl, [boot_drive]
     int 0x13
     jc  .err
 
-    ; Enable A20 (fast A20 gate)
+    ; --- enable A20 (fast gate) ---
     in  al, 0x92
     or  al, 2
     and al, 0xFE
     out 0x92, al
 
+    ; --- enter protected mode ---
     cli
     lgdt [gdt_desc]
     mov eax, cr0
@@ -67,6 +66,17 @@ pm_start:
 bits 16
 boot_drive db 0
 msg_err    db "Boot error", 0
+
+align 8
+dap:
+    db 0x10                     ; size of DAP
+    db 0
+dap_count:
+    dw 0                        ; sectors to read
+    dw 0x0000                   ; offset
+    dw KERNEL_SEG               ; segment
+dap_lba:
+    dq 0                        ; starting LBA
 
 align 8
 gdt:
