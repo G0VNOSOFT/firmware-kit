@@ -16,21 +16,24 @@ CFLAGS  := -m32 -ffreestanding -nostdlib -fno-builtin -fno-pic \
 ASFLAGS := -f win32 --prefix _
 LDFLAGS := -m i386pe --image-base 0x0 -T link.ld
 
-LIBDIR  := $(ROOT)/lib/idt_gdt
-COMNDIR := $(ROOT)/lib/common
-PCIDIR  := $(ROOT)/lib/pci
+LIBDIR   := $(ROOT)/lib/idt_gdt
+COMNDIR  := $(ROOT)/lib/common
+PCIDIR   := $(ROOT)/lib/pci
+TIMERDIR := $(ROOT)/lib/timer
+KBDDIR   := $(ROOT)/lib/kbd
 
 CFILES  := kernel.c \
-           $(LIBDIR)/gdt.c $(LIBDIR)/idt.c $(LIBDIR)/irq.c \
-           $(LIBDIR)/pit.c $(LIBDIR)/isr.c \
+           $(LIBDIR)/gdt.c $(LIBDIR)/idt.c $(LIBDIR)/irq.c $(LIBDIR)/isr.c \
            $(COMNDIR)/vga.c \
-           $(PCIDIR)/pci.c
+           $(PCIDIR)/pci.c \
+           $(TIMERDIR)/pit.c \
+           $(KBDDIR)/kbd.c
 AFILES  := $(LIBDIR)/gdt_flush.s $(LIBDIR)/idt_load.s $(LIBDIR)/isr_stubs.s
 
-OBJS    := kernel.o gdt.o idt.o irq.o pit.o isr.o vga.o pci.o \
+OBJS    := kernel.o gdt.o idt.o irq.o isr.o vga.o pci.o pit.o kbd.o \
            gdt_flush.o idt_load.o isr_stubs.o
 
-vpath %.c $(LIBDIR) $(COMNDIR) $(PCIDIR)
+vpath %.c $(LIBDIR) $(COMNDIR) $(PCIDIR) $(TIMERDIR) $(KBDDIR)
 vpath %.s $(LIBDIR)
 
 all: os.img
@@ -56,7 +59,11 @@ kernel.bin: kernel.pe
 os.img: boot.bin kernel.bin
 	cat boot.bin kernel.bin > $@
 	truncate -s 131072 $@
-	@echo "os.img: $$(wc -c < $@) bytes"
+	@k=$$(wc -c < kernel.bin); s=$$(( ($$k + 511) / 512 )); \
+	 echo "kernel.bin: $$k bytes = $$s sectors"; \
+	 if [ $$s -gt 64 ]; then \
+	   echo "ERROR: kernel.bin exceeds 64 sectors (32 KiB)"; exit 1; \
+	 fi
 
 run: os.img
 	$(QEMU) -drive format=raw,file=os.img
